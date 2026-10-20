@@ -4,6 +4,10 @@ pydantic==2.10.4
 pydantic-settings==2.7.1
 PyJWT==2.10.1
 
+# PostgreSQL: driver (psycopg 3) y pool de conexiones.
+psycopg[binary]==3.3.6
+psycopg-pool==3.3.3
+
 # Base de datos de zonas horarias. Garantiza que "America/Montevideo"
 # exista aunque la imagen del sistema operativo no la traiga.
 tzdata==2024.2

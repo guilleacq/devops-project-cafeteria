@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     app_timezone: str = "America/Montevideo"
 
     # Qué implementación de repositorios usar: "memory" (por ahora) o "postgres".
-    repository_backend: str = "memory"
+    repository_backend: str = "postgres"
 
     # Cadena de conexión a la base. La usa la implementación "postgres".
     database_url: str = ""

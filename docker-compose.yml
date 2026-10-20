@@ -1,12 +1,35 @@
 # Entorno local de desarrollo.
 #
-#   docker compose up --build                              → levanta la API en http://localhost:8000
+#   docker compose up --build                              → levanta PostgreSQL + API en http://localhost:8000
 #   docker compose --profile test run --rm backend-tests   → corre las pruebas
 #
-# La base de datos todavía no está: el backend usa repositorios en memoria
-# (REPOSITORY_BACKEND=memory) y los datos se pierden al reiniciar.
+# La base se crea sola la primera vez, con el esquema de `db/init.sql`
+# (la imagen de PostgreSQL ejecuta los archivos montados en
+# /docker-entrypoint-initdb.d). Los datos quedan en el volumen `postgres-data`,
+# así que sobreviven a los reinicios. Para empezar de cero:
+#
+#   docker compose down -v
 
 services:
+
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: cafeteria
+      POSTGRES_PASSWORD: cafeteria
+      POSTGRES_DB: cafeteria
+    ports:
+      # Para conectarse con psql o un cliente gráfico desde la máquina.
+      # Si el puerto 5432 ya está ocupado, cambiar el de la izquierda.
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/01_init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cafeteria -d cafeteria"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
   backend:
     build:
@@ -16,10 +39,14 @@ services:
       - "8000:8000"
     environment:
       APP_TIMEZONE: America/Montevideo
-      REPOSITORY_BACKEND: memory
+      REPOSITORY_BACKEND: postgres
+      DATABASE_URL: postgresql://cafeteria:cafeteria@db:5432/cafeteria
       JWT_SECRET: dev-secret-cambiar-en-produccion
       DEFAULT_ORDER_CUTOFF_MINUTES: "15"
       CORS_ALLOWED_ORIGINS: "*"
+    depends_on:
+      db:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 10s
@@ -31,3 +58,6 @@ services:
     build:
       context: ./backend
       target: test
+
+volumes:
+  postgres-data:
