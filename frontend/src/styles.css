@@ -1,0 +1,1365 @@
+/* ==========================================================================
+   Cafetería · hoja de cuaderno
+   Cuadriculado azul, tinta de birome, resaltador amarillo y lapicera roja
+   para tachar lo que ya pasó.
+   ========================================================================== */
+
+:root {
+  --paper: #f2f4f7;
+  --grid: #dde4ef;
+  --card: #ffffff;
+  --graphite: #1d2129;
+  --pencil: #646b78;
+  --rule: #cfd6e2;
+  --ink: #2340a8;
+  --ink-deep: #172c7a;
+  --ink-wash: #e7ebf8;
+  --highlight: #ffe94d;
+  --pen-red: #d2412f;
+  --ready: #1d7f52;
+  --ready-wash: #e3f3ea;
+
+  --font-display: "Archivo", "Arial Narrow", system-ui, sans-serif;
+  --font-body: "Atkinson Hyperlegible", system-ui, sans-serif;
+  --font-mono: "Spline Sans Mono", ui-monospace, monospace;
+
+  --radius: 10px;
+  --gutter: 16px;
+  --tabbar-height: 64px;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+
+  color-scheme: light;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  font-family: var(--font-body);
+  font-size: 1rem;
+  line-height: 1.5;
+  color: var(--graphite);
+  background-color: var(--paper);
+  background-image:
+    linear-gradient(var(--grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 24px 24px;
+  background-attachment: fixed;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+
+button,
+input {
+  font: inherit;
+  color: inherit;
+}
+
+a {
+  color: var(--ink);
+}
+
+:focus-visible {
+  outline: 3px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.muted {
+  color: var(--pencil);
+}
+
+.text-error {
+  color: var(--pen-red);
+}
+
+/* Resaltador: una pasada de marcador, un poco torcida, detrás del texto. */
+mark {
+  color: inherit;
+  padding: 0 0.2em;
+  margin: 0 -0.1em;
+  background: linear-gradient(
+    100deg,
+    transparent 0.15em,
+    var(--highlight) 0.3em,
+    var(--highlight) calc(100% - 0.25em),
+    transparent 100%
+  );
+  background-size: 100% 0.9em;
+  background-position: 0 70%;
+  background-repeat: no-repeat;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+/* --------------------------------------------------------------------------
+   Marca
+   -------------------------------------------------------------------------- */
+
+.wordmark {
+  display: flex;
+  flex-direction: column;
+  line-height: 1;
+}
+
+.wordmark__name {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-stretch: 115%;
+  font-size: 1.25rem;
+  letter-spacing: -0.02em;
+  color: var(--ink-deep);
+}
+
+.wordmark__tagline {
+  margin-top: 4px;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.02em;
+  color: var(--pencil);
+}
+
+.wordmark--large .wordmark__name {
+  font-size: clamp(2.6rem, 11vw, 4.5rem);
+  font-stretch: 125%;
+  letter-spacing: -0.035em;
+}
+
+.wordmark--large .wordmark__tagline {
+  margin-top: 10px;
+  font-size: 0.9rem;
+}
+
+/* --------------------------------------------------------------------------
+   Marco de la app
+   -------------------------------------------------------------------------- */
+
+.shell {
+  margin: 0 auto;
+  padding: 0 var(--gutter);
+}
+
+.shell--narrow {
+  max-width: 640px;
+  /* Lugar para las pestañas y la barra del carrito, que quedan fijas abajo. */
+  padding-bottom: calc(var(--tabbar-height) + 112px + var(--safe-bottom));
+}
+
+.shell--wide {
+  max-width: 1320px;
+  padding-bottom: 48px;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 0 14px;
+}
+
+.topbar__user {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+}
+
+.topbar__name {
+  font-weight: 700;
+}
+
+.link-button {
+  padding: 4px 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.tabs {
+  display: flex;
+  gap: 4px;
+}
+
+.tabs__link {
+  position: relative;
+  padding: 10px 14px;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-stretch: 100%;
+  color: var(--pencil);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.tabs__link.active {
+  color: var(--ink-deep);
+}
+
+.tabs__link.active::after {
+  content: "";
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 4px;
+  height: 0.5em;
+  z-index: -1;
+  background: var(--highlight);
+  border-radius: 2px;
+  transform: skewX(-12deg);
+}
+
+.tabs__link.active {
+  isolation: isolate;
+}
+
+/* Alumno en el celular: pestañas fijas abajo, a mano del pulgar. */
+@media (max-width: 719px) {
+  .shell--narrow .tabs {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 20;
+    height: calc(var(--tabbar-height) + var(--safe-bottom));
+    padding: 0 var(--gutter) var(--safe-bottom);
+    background: var(--card);
+    border-top: 1px solid var(--rule);
+  }
+
+  .shell--narrow .tabs__link {
+    flex: 1;
+    display: grid;
+    place-items: center;
+    font-size: 1rem;
+  }
+
+  .shell--narrow .tabs__link.active::after {
+    left: 28%;
+    right: 28%;
+    bottom: 16px;
+  }
+}
+
+.shell--wide .tabs {
+  overflow-x: auto;
+  margin: 0 calc(var(--gutter) * -1);
+  padding: 0 calc(var(--gutter) - 14px);
+  border-bottom: 1px solid var(--rule);
+  scrollbar-width: none;
+}
+
+@media (min-width: 720px) {
+  .shell--narrow .tabs {
+    border-bottom: 1px solid var(--rule);
+    margin-left: -14px;
+  }
+
+  .shell--narrow {
+    padding-bottom: 160px;
+  }
+}
+
+.page {
+  padding-top: 24px;
+}
+
+/* --------------------------------------------------------------------------
+   Piezas comunes
+   -------------------------------------------------------------------------- */
+
+.section-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 16px;
+  margin-bottom: 12px;
+}
+
+.section-title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-stretch: 105%;
+  font-size: 1.35rem;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+
+.section-meta {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--pencil);
+}
+
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+
+.sheet {
+  padding: 20px;
+  background: var(--card);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+}
+
+.sheet__title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-stretch: 105%;
+  font-size: 1.25rem;
+  margin-bottom: 6px;
+}
+
+.empty {
+  padding: 18px 0;
+  color: var(--pencil);
+}
+
+.empty-state {
+  display: grid;
+  justify-items: start;
+  gap: 16px;
+  padding: 40px 0;
+}
+
+.empty-state__title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.5rem;
+  line-height: 1.2;
+}
+
+.loading {
+  padding: 32px 0;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  color: var(--pencil);
+}
+
+/* Botones */
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 0 22px;
+  border: 2px solid transparent;
+  border-radius: 999px;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform 120ms ease, background-color 120ms ease;
+}
+
+.button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.button--ink {
+  background: var(--ink);
+  color: #fff;
+}
+
+.button--ink:hover:not(:disabled) {
+  background: var(--ink-deep);
+}
+
+.button--ghost {
+  background: var(--card);
+  border-color: var(--ink);
+  color: var(--ink);
+}
+
+.button--ghost:hover:not(:disabled) {
+  background: var(--ink-wash);
+}
+
+.button--highlight {
+  flex-shrink: 0;
+  white-space: nowrap;
+  background: var(--highlight);
+  color: var(--graphite);
+}
+
+.button--block {
+  width: 100%;
+}
+
+.button--small {
+  min-height: 38px;
+  padding: 0 14px;
+  font-size: 0.9rem;
+}
+
+.chip {
+  padding: 6px 12px;
+  border: 1px dashed var(--ink);
+  border-radius: 999px;
+  background: none;
+  color: var(--ink);
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+/* Campos */
+
+.field {
+  display: grid;
+  gap: 6px;
+}
+
+.field__label {
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.field input,
+.editable-row input {
+  min-height: 46px;
+  padding: 0 12px;
+  border: 1.5px solid var(--rule);
+  border-radius: 8px;
+  background: var(--card);
+}
+
+.field input:focus,
+.editable-row input:focus {
+  border-color: var(--ink);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--ink-wash);
+}
+
+.field--inline {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Avisos */
+
+.notice {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-left: 4px solid var(--ink);
+  border-radius: 4px var(--radius) var(--radius) 4px;
+  background: var(--card);
+  box-shadow: 0 1px 0 var(--rule);
+}
+
+.notice--error {
+  border-left-color: var(--pen-red);
+}
+
+.notice--error .notice__title {
+  color: var(--pen-red);
+}
+
+.notice--ok {
+  border-left-color: var(--ready);
+}
+
+.notice__title {
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+
+.notice__close {
+  border: 0;
+  background: none;
+  font-size: 1.4rem;
+  line-height: 1;
+  color: var(--pencil);
+  cursor: pointer;
+}
+
+/* --------------------------------------------------------------------------
+   Login
+   -------------------------------------------------------------------------- */
+
+.login {
+  display: grid;
+  gap: 32px;
+  max-width: 1000px;
+  min-height: 100dvh;
+  margin: 0 auto;
+  padding: 48px var(--gutter);
+  align-content: center;
+}
+
+.login__lede {
+  max-width: 26ch;
+  margin-top: 22px;
+  font-size: 1.2rem;
+  line-height: 1.45;
+}
+
+.login__form {
+  display: grid;
+  gap: 16px;
+  padding: 24px;
+}
+
+.demo-users {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--rule);
+}
+
+.demo-users__title {
+  width: 100%;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--pencil);
+}
+
+@media (min-width: 820px) {
+  .login {
+    grid-template-columns: 1.2fr 1fr;
+    align-items: center;
+    gap: 64px;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Alumno · elegir recreo
+   -------------------------------------------------------------------------- */
+
+.order-page {
+  display: grid;
+  gap: 32px;
+}
+
+.order-page > section {
+  display: grid;
+  gap: 12px;
+}
+
+.order-page .section-head {
+  margin-bottom: 0;
+}
+
+.timetable {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  background: var(--card);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.timetable li + li {
+  border-top: 1px solid var(--rule);
+}
+
+.period {
+  position: relative;
+  display: grid;
+  grid-template-columns: 4.2rem 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  cursor: pointer;
+  transition: background-color 150ms ease;
+}
+
+/* La línea roja del margen del cuaderno, entre la hora y el nombre. */
+.period::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(16px + 4.2rem + 4px);
+  width: 1.5px;
+  background: color-mix(in srgb, var(--pen-red) 45%, transparent);
+}
+
+.period__time {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 1.2rem;
+  color: var(--ink);
+}
+
+.period__body {
+  display: grid;
+  gap: 2px;
+  padding-left: 8px;
+}
+
+.period__name {
+  font-weight: 700;
+}
+
+.period__status {
+  font-size: 0.9rem;
+}
+
+.period__countdown {
+  color: var(--pencil);
+}
+
+.period__check {
+  width: 22px;
+  height: 22px;
+  border: 2px solid var(--rule);
+  border-radius: 50%;
+}
+
+.period:hover:not(.period--closed) {
+  background: var(--ink-wash);
+}
+
+.period:has(input:focus-visible) {
+  outline: 3px solid var(--ink);
+  outline-offset: -3px;
+}
+
+.period--selected {
+  background: var(--ink-wash);
+}
+
+.period--selected .period__check {
+  border-color: var(--ink);
+  background: radial-gradient(circle, var(--ink) 0 5px, transparent 6px);
+}
+
+/* Lo que ya cerró queda tachado a mano, con lapicera roja. */
+.period--closed {
+  cursor: default;
+  color: var(--pencil);
+}
+
+.period--closed .period__time {
+  color: var(--pencil);
+}
+
+.period--closed .period__check {
+  visibility: hidden;
+}
+
+.period--closed .period__time,
+.period--closed .period__name {
+  justify-self: start;
+  padding: 0 4px;
+  margin: 0 -4px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 14' preserveAspectRatio='none'%3E%3Cpath d='M2 9 C 50 4, 90 11, 140 7 S 230 3, 298 6' fill='none' stroke='%23d2412f' stroke-width='2.4' stroke-linecap='round'/%3E%3C/svg%3E")
+    center 55% / 100% 0.7em no-repeat;
+}
+
+/* --------------------------------------------------------------------------
+   Alumno · menú
+   -------------------------------------------------------------------------- */
+
+.menu {
+  margin: 0;
+  padding: 4px 16px;
+  list-style: none;
+  background: var(--card);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+}
+
+.menu__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 64px;
+}
+
+.menu__item + .menu__item {
+  border-top: 1px dashed var(--rule);
+}
+
+.menu__name {
+  font-weight: 700;
+}
+
+/* Puntitos entre el nombre y el precio, como en un menú escrito a mano. */
+.menu__leader {
+  flex: 1;
+  min-width: 12px;
+  height: 1px;
+  margin-top: 0.6em;
+  background: radial-gradient(circle, var(--pencil) 1px, transparent 1.4px) 0 0 / 7px 2px repeat-x;
+  opacity: 0.6;
+}
+
+.menu__price {
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  margin-right: 6px;
+}
+
+.menu__item--sold-out .menu__name,
+.menu__item--sold-out .menu__price {
+  color: var(--pencil);
+  text-decoration: line-through;
+  text-decoration-color: var(--pen-red);
+  text-decoration-thickness: 2px;
+}
+
+.menu__sold-out {
+  min-width: 104px;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--pen-red);
+}
+
+.stepper {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 104px;
+  border-radius: 999px;
+}
+
+.stepper--active {
+  background: var(--ink-wash);
+}
+
+.stepper__button {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border: 1.5px solid var(--ink);
+  border-radius: 50%;
+  background: var(--card);
+  color: var(--ink);
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.stepper--active .stepper__button {
+  border-color: transparent;
+  background: var(--ink);
+  color: #fff;
+}
+
+.stepper__button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.stepper__value {
+  min-width: 28px;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--ink-deep);
+}
+
+/* Barra del carrito: queda fija abajo, arriba de las pestañas. */
+.cart-bar {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--tabbar-height) + var(--safe-bottom) + 10px);
+  z-index: 15;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: min(640px - 2 * var(--gutter), calc(100% - 2 * var(--gutter)));
+  padding: 10px 10px 10px 18px;
+  border-radius: 18px;
+  background: var(--ink-deep);
+  color: #fff;
+  box-shadow: 0 10px 30px -12px rgb(23 44 122 / 0.6);
+  transform: translateX(-50%);
+  animation: rise 220ms ease-out;
+}
+
+@media (min-width: 720px) {
+  .cart-bar {
+    bottom: 24px;
+  }
+}
+
+.cart-bar__summary {
+  display: grid;
+  min-width: 0;
+}
+
+.cart-bar__units {
+  overflow: hidden;
+  font-size: 0.8rem;
+  opacity: 0.8;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.cart-bar__total {
+  font-family: var(--font-mono);
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 12px);
+  }
+}
+
+/* Confirmación */
+
+.confirmation {
+  display: grid;
+  gap: 14px;
+}
+
+.confirmation__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 18px;
+}
+
+/* --------------------------------------------------------------------------
+   Ticket de pedido
+   -------------------------------------------------------------------------- */
+
+.ticket-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 18px;
+  align-items: start;
+}
+
+.ticket-shadow {
+  filter: drop-shadow(0 1px 0 var(--rule)) drop-shadow(0 6px 10px rgb(29 33 41 / 0.07));
+}
+
+.ticket {
+  --tooth: 9px;
+  display: grid;
+  gap: 12px;
+  padding: 16px 18px calc(18px + var(--tooth));
+  background: var(--card);
+  border-radius: var(--radius) var(--radius) 0 0;
+  /* Borde de abajo dentado, como un papel arrancado del talonario. */
+  -webkit-mask:
+    conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) 50% / calc(2 * var(--tooth)) 100%;
+  mask:
+    conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) 50% / calc(2 * var(--tooth)) 100%;
+}
+
+.ticket__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.ticket__label {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--pencil);
+}
+
+.ticket__number {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-stretch: 75%;
+  font-size: 2.4rem;
+  line-height: 1;
+  color: var(--ink-deep);
+  font-variant-numeric: tabular-nums;
+}
+
+.ticket__student {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.2rem;
+  line-height: 1.2;
+}
+
+.ticket__recess {
+  font-weight: 700;
+}
+
+.ticket__items {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 12px 0 0;
+  list-style: none;
+  border-top: 1px dashed var(--rule);
+}
+
+.ticket__items li {
+  display: grid;
+  grid-template-columns: 2.4rem 1fr auto;
+  gap: 6px;
+}
+
+.ticket__qty,
+.ticket__subtotal {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.ticket__qty {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.ticket__foot {
+  display: flex;
+  justify-content: space-between;
+  padding-top: 10px;
+  border-top: 1px dashed var(--rule);
+  font-weight: 700;
+}
+
+.ticket__total {
+  font-family: var(--font-mono);
+}
+
+.ticket__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ticket--delivered {
+  opacity: 0.72;
+}
+
+.ticket--compact .ticket__number {
+  font-size: 1.9rem;
+}
+
+.ticket--compact .ticket__items li {
+  grid-template-columns: 2.4rem 1fr;
+}
+
+/* Sello del estado: tinta de sello, apenas torcido. */
+.stamp {
+  flex-shrink: 0;
+  padding: 3px 8px;
+  border: 2px solid currentColor;
+  border-radius: 6px;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  transform: rotate(-3deg);
+}
+
+.stamp--pending {
+  color: var(--ink);
+}
+
+.stamp--ready {
+  color: var(--ready);
+  background: var(--ready-wash);
+}
+
+.stamp--delivered {
+  color: var(--pencil);
+}
+
+.my-orders {
+  display: grid;
+  gap: 36px;
+}
+
+/* --------------------------------------------------------------------------
+   Cafetería · tablero del próximo recreo
+   -------------------------------------------------------------------------- */
+
+.board {
+  display: grid;
+  gap: 28px;
+}
+
+.board__head {
+  display: grid;
+  gap: 18px;
+}
+
+.board__title {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-stretch: 112%;
+  font-size: clamp(2rem, 6vw, 3.4rem);
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+  color: var(--ink-deep);
+}
+
+.board__time {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-stretch: normal;
+  letter-spacing: 0;
+  color: var(--ink);
+}
+
+.board__facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 32px;
+  margin: 0;
+}
+
+.board__facts dt {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--pencil);
+}
+
+.board__facts dd {
+  margin: 0;
+  font-weight: 700;
+}
+
+.board__columns {
+  display: grid;
+  gap: 28px;
+}
+
+@media (min-width: 960px) {
+  .board__head {
+    grid-template-columns: 1fr auto;
+    align-items: end;
+  }
+
+  .board__columns {
+    grid-template-columns: minmax(280px, 1fr) 2.4fr;
+    align-items: start;
+  }
+
+  .prep {
+    position: sticky;
+    top: 16px;
+  }
+}
+
+/* Lista de lo que hay que preparar: números grandes, legibles desde lejos. */
+.prep {
+  padding: 18px 20px;
+  background: var(--ink-deep);
+  color: #fff;
+  border-radius: var(--radius);
+}
+
+.prep .section-title {
+  margin-bottom: 8px;
+  color: var(--highlight);
+}
+
+.prep .empty {
+  color: rgb(255 255 255 / 0.7);
+}
+
+.prep__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.prep__list li {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  padding: 8px 0;
+}
+
+.prep__list li + li {
+  border-top: 1px solid rgb(255 255 255 / 0.14);
+}
+
+.prep__count {
+  min-width: 2.6ch;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-stretch: 75%;
+  font-size: 2.6rem;
+  line-height: 1;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.prep__name {
+  font-size: 1.1rem;
+}
+
+/* Pedidos de hoy */
+
+.today {
+  display: grid;
+  gap: 36px;
+}
+
+.today__group .section-title .mono {
+  color: var(--ink);
+  margin-right: 6px;
+}
+
+/* --------------------------------------------------------------------------
+   Cafetería · ventas
+   -------------------------------------------------------------------------- */
+
+.sales {
+  display: grid;
+  gap: 24px;
+  max-width: 760px;
+}
+
+.tally {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 1px;
+  margin: 0;
+  overflow: hidden;
+  background: var(--rule);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+}
+
+.tally > div {
+  padding: 16px 18px;
+  background: var(--card);
+}
+
+.tally dt {
+  font-size: 0.85rem;
+  color: var(--pencil);
+}
+
+.tally dd {
+  margin: 4px 0 0;
+  font-family: var(--font-mono);
+  font-size: 1.6rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.tally__money {
+  color: var(--ink-deep);
+}
+
+.ledger {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--card);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.ledger th,
+.ledger td {
+  padding: 12px 16px;
+  text-align: left;
+  border-bottom: 1px solid var(--rule);
+}
+
+.ledger th {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--pencil);
+}
+
+.ledger tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.ledger .num {
+  text-align: right;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* --------------------------------------------------------------------------
+   Cafetería · ajustes
+   -------------------------------------------------------------------------- */
+
+.settings {
+  display: grid;
+  gap: 24px;
+  max-width: 760px;
+}
+
+.settings .sheet {
+  display: grid;
+  gap: 14px;
+}
+
+.cutoff {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.cutoff__input {
+  width: 6rem;
+  font-family: var(--font-mono);
+  font-size: 1.2rem;
+  text-align: center;
+}
+
+.example {
+  font-size: 0.95rem;
+}
+
+.editable-list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.editable-row,
+.editable-row__form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.editable-row {
+  padding: 8px 0;
+  border-bottom: 1px dashed var(--rule);
+}
+
+.editable-row--recess {
+  display: block;
+}
+
+.editable-row--new {
+  border-bottom: 0;
+}
+
+.editable-row--new input::placeholder {
+  color: var(--pencil);
+}
+
+.editable-row__name {
+  flex: 1 1 160px;
+  min-width: 0;
+}
+
+.editable-row__time {
+  width: 9.5rem;
+  font-family: var(--font-mono);
+}
+
+.editable-row--muted .editable-row__name {
+  color: var(--pencil);
+  text-decoration: line-through;
+  text-decoration-color: var(--pen-red);
+}
+
+.money-input,
+.minutes-input {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  color: var(--pencil);
+}
+
+.money-input input,
+.minutes-input input {
+  width: 5.5rem;
+  font-family: var(--font-mono);
+}
+
+.toggle {
+  min-width: 108px;
+  min-height: 38px;
+  padding: 0 12px;
+  border: 1.5px solid var(--ready);
+  border-radius: 999px;
+  background: var(--ready-wash);
+  color: var(--ready);
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.toggle--off {
+  border-color: var(--pen-red);
+  background: transparent;
+  color: var(--pen-red);
+}
+
+/* --------------------------------------------------------------------------
+   Movimiento reducido
+   -------------------------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
