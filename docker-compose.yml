@@ -1,0 +1,33 @@
+# Entorno local de desarrollo.
+#
+#   docker compose up --build                              → levanta la API en http://localhost:8000
+#   docker compose --profile test run --rm backend-tests   → corre las pruebas
+#
+# La base de datos todavía no está: el backend usa repositorios en memoria
+# (REPOSITORY_BACKEND=memory) y los datos se pierden al reiniciar.
+
+services:
+
+  backend:
+    build:
+      context: ./backend
+      target: runtime
+    ports:
+      - "8000:8000"
+    environment:
+      APP_TIMEZONE: America/Montevideo
+      REPOSITORY_BACKEND: memory
+      JWT_SECRET: dev-secret-cambiar-en-produccion
+      DEFAULT_ORDER_CUTOFF_MINUTES: "15"
+      CORS_ALLOWED_ORIGINS: "*"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  backend-tests:
+    profiles: ["test"]
+    build:
+      context: ./backend
+      target: test
