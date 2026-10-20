@@ -1,6 +1,8 @@
 # Entorno local de desarrollo.
 #
-#   docker compose up --build                              → levanta PostgreSQL + API en http://localhost:8000
+#   docker compose up --build                              → levanta la app en http://localhost:8080
+#                                                            (y la API en http://localhost:8000)
+#                                                            levanta PostgreSQL
 #   docker compose --profile test run --rm backend-tests   → corre las pruebas
 #
 # La base se crea sola la primera vez, con el esquema de `db/init.sql`
@@ -52,6 +54,18 @@ services:
       interval: 10s
       timeout: 3s
       retries: 3
+
+  frontend:
+    build:
+      context: ./frontend
+      target: runtime
+    ports:
+      - "8080:8080"
+    environment:
+      BACKEND_URL: http://backend:8000
+    depends_on:
+      backend:
+        condition: service_healthy
 
   backend-tests:
     profiles: ["test"]

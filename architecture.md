@@ -17,6 +17,7 @@ Este documento reúne todas las decisiones técnicas del proyecto: qué se const
 11. [Errores](#11-errores)
 12. [Persistencia: repositorios y base de datos](#12-persistencia-repositorios-y-base-de-datos)
 13. [Docker y entorno local](#13-docker-y-entorno-local)
+    - [13 bis. Frontend](#13-bis-frontend)
 14. [Pruebas](#14-pruebas)
 15. [Despliegue en Kubernetes y Jenkins](#15-despliegue-en-kubernetes-y-jenkins)
 16. [Convenciones de código](#16-convenciones-de-código)
@@ -61,7 +62,7 @@ flowchart LR
 
     subgraph cluster["Cluster del laboratorio · namespace del equipo"]
         ingress["Ingress<br/>URL del equipo"]
-        frontend["Frontend<br/>(pendiente)"]
+        frontend["Frontend<br/>React + nginx :8080"]
         backend["Backend<br/>FastAPI :8000"]
         db[("PostgreSQL<br/>+ volumen persistente<br/>(pendiente)")]
     end
@@ -94,6 +95,8 @@ flowchart LR
 | Zona horaria | **zoneinfo + tzdata** | `zoneinfo` es estándar; `tzdata` garantiza que exista `America/Montevideo` dentro de la imagen |
 | Servidor | **Uvicorn** | El servidor ASGI recomendado para FastAPI |
 | Pruebas | **pytest + TestClient** (httpx) | Pruebas de la API completa sin levantar un servidor |
+| Frontend | **React 18 + Vite**, CSS propio | Pocas dependencias (solo `react`, `react-dom` y `react-router-dom`); Vite compila rápido en Jenkins. Sin framework de CSS: la estética es propia (sección 13 bis) |
+| Servidor del frontend | **nginx** (`nginx-unprivileged`) | Sirve los archivos estáticos sin root y, fuera del cluster, manda `/api` al backend |
 | Base de datos (pendiente) | **PostgreSQL 16** (propuesta) | Estándar, con buen soporte de tipos de fecha y hora con zona |
 
 Se descartaron Node + Express (más armado manual de validación y documentación) y Java + Spring Boot (mucho código repetitivo, imagen pesada y compilación lenta en Jenkins).
@@ -108,6 +111,7 @@ cafeteria/
 ├── architecture.md            ← este documento
 ├── docker-compose.yml         ← entorno local
 ├── .gitignore
+├── frontend/                  ← ver sección 13 bis
 └── backend/
     ├── Dockerfile             ← etapas: base, test, runtime
     ├── .dockerignore
@@ -149,7 +153,7 @@ cafeteria/
         └── test_cafeteria.py
 ```
 
-Las carpetas `frontend/`, `k8s/` y el `Jenkinsfile` todavía no existen; se agregan en la raíz cuando se trabajen.
+La carpeta `k8s/` y el `Jenkinsfile` todavía no existen; se agregan en la raíz cuando se trabajen.
 
 ---
 
@@ -584,10 +588,11 @@ Así las herramientas de prueba no quedan en la imagen de producción, y el cont
 | Servicio | Qué hace |
 |---|---|
 | `backend` | Construye la etapa `runtime`, expone `localhost:8000` y tiene un healthcheck contra `/health` |
+| `frontend` | Construye la imagen del frontend, expone `localhost:8080` y manda `/api` al servicio `backend` |
 | `backend-tests` | Perfil `test`. Construye la etapa `test` y corre las pruebas |
 
 ```bash
-docker compose up --build                              # levanta la API
+docker compose up --build                              # levanta la app (:8080) y la API (:8000)
 docker compose --profile test run --rm backend-tests   # corre las pruebas
 docker compose down                                    # apaga todo
 ```
@@ -603,6 +608,72 @@ docker compose down                                    # apaga todo
 | `ACCESS_TOKEN_EXPIRATION_MINUTES` | `480` | Duración de la sesión |
 | `DEFAULT_ORDER_CUTOFF_MINUTES` | `15` | X inicial, si la tabla `configuracion` no lo tiene |
 | `CORS_ALLOWED_ORIGINS` | `*` | Orígenes permitidos, separados por coma |
+
+---
+
+## 13 bis. Frontend
+
+### Estructura
+
+```
+frontend/
+├── Dockerfile               ← etapas: build (Node) y runtime (nginx)
+├── nginx.conf.template      ← sirve la app y manda /api al backend
+├── vite.config.js           ← en desarrollo, /api va a localhost:8000
+└── src/
+    ├── main.jsx / App.jsx   ← rutas según el rol del usuario
+    ├── api.js               ← única puerta a la API; errores como ApiError {code, detail}
+    ├── session.jsx          ← usuario actual y token (localStorage)
+    ├── hooks.js             ← useApiData (carga y refresco) y useNow (reloj)
+    ├── format.js            ← horas en America/Montevideo, pesos, estados
+    ├── styles.css           ← todos los estilos, con variables en :root
+    ├── components/          ← AppShell, OrderTicket, Stepper, Notice...
+    └── pages/
+        ├── LoginPage.jsx
+        ├── student/         ← OrderPage (pedir), MyOrdersPage
+        └── cafeteria/       ← BoardPage, TodayPage, SalesPage, SettingsPage
+```
+
+### Pantallas
+
+| Rol | Ruta | Qué hace | Endpoints |
+|---|---|---|---|
+| Ambos | `/` | Login | `POST /auth/login`, `GET /auth/me` |
+| Alumno | `/pedir` | Elegir recreo de hoy, elegir productos y confirmar | `GET /recesses/today`, `GET /products`, `POST /orders` |
+| Alumno | `/mis-pedidos` | Pedidos con su estado; se refresca cada 15 s | `GET /orders/mine` |
+| Cafetería | `/cafeteria` | Tablero del próximo recreo: totales a preparar y pedidos; se refresca cada 5 s | `GET /cafeteria/next-recess`, `PATCH /orders/{id}/status` |
+| Cafetería | `/cafeteria/hoy` | Todos los pedidos del día por recreo | `GET /cafeteria/orders-today` |
+| Cafetería | `/cafeteria/ventas` | Resumen de ventas de un día | `GET /cafeteria/sales-summary` |
+| Cafetería | `/cafeteria/ajustes` | Cambiar X, editar productos (precio, agotado) y recreos | `PUT /configuration/order-cutoff`, `PATCH/POST /products`, `PATCH/POST /recesses` |
+
+### Decisiones
+
+- **La regla de la hora límite la sigue aplicando el backend.** La pantalla deshabilita los recreos cerrados (con `is_accepting_orders` y `ordering_closes_at`) solo para ayudar. Si igual llega un `ORDERING_CLOSED`, se muestra el `detail` del backend y se recargan los recreos.
+- **Las horas se muestran siempre en la zona del liceo** (`Intl.DateTimeFormat` con `timeZone: "America/Montevideo"`), aunque el celular esté en otra zona.
+- **Refresco por polling** (`useApiData` con `refreshEverySeconds`) y no WebSockets: alcanza para el volumen de un liceo y no agrega nada al backend.
+- **Misma URL para frontend y API.** El cliente siempre llama a `/api/...` relativo: en desarrollo lo resuelve el proxy de Vite, en docker compose nginx, y en el cluster el Ingress. No hace falta CORS ni configurar la URL del backend al compilar.
+- **Usuarios de prueba en el login** solo en `npm run dev` (`import.meta.env.DEV`), nunca en la imagen publicada.
+- **Si el token vence** (401), la sesión se cierra sola y vuelve al login.
+
+### Estética
+
+Una hoja de cuaderno: fondo cuadriculado, tinta de birome azul (`--ink`), resaltador amarillo (`<mark>`) en el dato importante (hasta qué hora se puede pedir) y lapicera roja para tachar los recreos que ya cerraron y los productos agotados. Los pedidos se muestran como tickets de cantina con el borde dentado. Tipografías: *Archivo* (títulos), *Atkinson Hyperlegible* (texto, pensada para leerse bien) y *Spline Sans Mono* (horas y precios). Todo el diseño sale de las variables de `:root` en `styles.css`.
+
+Pensada primero para el celular: las pestañas del alumno van abajo, al alcance del pulgar, y la barra del carrito queda fija arriba de ellas. La cafetería usa la misma app en una pantalla grande, con los totales a preparar en números grandes.
+
+### Desarrollo
+
+```bash
+docker compose up -d backend    # la API en :8000
+cd frontend && npm install && npm run dev   # la app en http://localhost:5173
+```
+
+### Imagen
+
+| Etapa | Contenido |
+|---|---|
+| `build` | `node:20-alpine`, `npm ci` y `npm run build`. Si no compila, la pipeline se corta acá |
+| `runtime` | `nginxinc/nginx-unprivileged`, puerto **8080**, sin root. La variable `BACKEND_URL` (por defecto `http://backend:8000`) dice a dónde mandar `/api` |
 
 ---
 
@@ -632,6 +703,7 @@ Pendiente. Lineamientos para cuando se arme:
 - `ConfigMap` con `APP_TIMEZONE`, `REPOSITORY_BACKEND`, `DEFAULT_ORDER_CUTOFF_MINUTES` y `CORS_ALLOWED_ORIGINS`.
 - `Secret` con `JWT_SECRET` y `DATABASE_URL`.
 - `Service` del backend (puerto 8000).
+- `Deployment` y `Service` del frontend con la imagen `runtime` de `frontend/`, puerto 8080, y `BACKEND_URL` apuntando al Service del backend.
 - `Ingress` con la URL del equipo: `/api` → backend, `/` → frontend.
 - PostgreSQL con un `StatefulSet` (o `Deployment` de una réplica) y un `PersistentVolumeClaim`, para cumplir "si se reinicia la base, los datos siguen ahí".
 - Mientras el backend use repositorios en memoria, tiene que correr con **una sola réplica**.
@@ -639,7 +711,7 @@ Pendiente. Lineamientos para cuando se arme:
 **Jenkins (`Jenkinsfile` en la raíz)**, ante un cambio en la rama principal:
 
 1. **Test**: `docker build --target test -t cafeteria-backend-test backend/` y luego `docker run --rm cafeteria-backend-test`. Si falla, la pipeline se corta.
-2. **Build**: `docker build --target runtime -t <registro>/cafeteria-backend:<commit> backend/`.
+2. **Build**: `docker build --target runtime -t <registro>/cafeteria-backend:<commit> backend/` y `docker build -t <registro>/cafeteria-frontend:<commit> frontend/`.
 3. **Push**: publicar la imagen en el registro del laboratorio.
 4. **Deploy**: aplicar los manifiestos y actualizar la imagen del Deployment desde Jenkins, con las credenciales del cluster guardadas en Jenkins. Nadie corre `kubectl` a mano.
 
@@ -681,7 +753,6 @@ La prioridad es la **legibilidad**.
 ## 18. Próximos pasos
 
 1. **Base de datos**: implementar `postgres.py`, las migraciones y el servicio `db` en el compose (sección 12).
-2. **Frontend**: pantallas de login, catálogo y carrito, mis pedidos, pantalla de la cafetería (`/api/cafeteria/next-recess`, que conviene refrescar cada pocos segundos) y configuración de X. Debe usarse bien desde el celular.
-3. **Kubernetes**: manifiestos en `k8s/` (sección 15).
-4. **Jenkins**: `Jenkinsfile` con test → build → push → deploy (sección 15).
-5. **Antes de la demo**: cambiar contraseñas y `JWT_SECRET`, cargar productos y recreos reales, actualizar este documento con lo que de verdad se construyó.
+2. **Kubernetes**: manifiestos en `k8s/` (sección 15).
+3. **Jenkins**: `Jenkinsfile` con test → build → push → deploy (sección 15).
+4. **Antes de la demo**: cambiar contraseñas y `JWT_SECRET`, cargar productos y recreos reales, actualizar este documento con lo que de verdad se construyó.

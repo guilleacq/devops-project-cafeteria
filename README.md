@@ -61,7 +61,7 @@ El detalle técnico de cada decisión está en [architecture.md](architecture.md
 |---|---|
 | Servidor (backend) | ✅ Completo y con pruebas. Por ahora guarda los datos en memoria |
 | Base de datos | ⏳ Pendiente |
-| Pantalla (frontend) | ⏳ Pendiente |
+| Pantalla (frontend) | ✅ Completa: alumno (pedir, mis pedidos) y cafetería (tablero, pedidos de hoy, ventas, ajustes) |
 | Despliegue en Kubernetes | ⏳ Pendiente |
 | Pipeline de Jenkins | ⏳ Pendiente |
 
@@ -73,7 +73,9 @@ Solo hace falta tener **Docker** instalado.
 docker compose up --build
 ```
 
-Después abrí **http://localhost:8000/api/docs** en el navegador. Ahí está la lista de todo lo que ofrece el servidor y se puede probar cada función desde la misma página.
+Después abrí **http://localhost:8080** en el navegador (o en el celular, con la IP de tu computadora) y entrá con alguno de los usuarios de prueba.
+
+La documentación del servidor está en **http://localhost:8000/api/docs**: ahí está la lista de todo lo que ofrece y se puede probar cada función desde la misma página.
 
 Usuarios de prueba:
 
