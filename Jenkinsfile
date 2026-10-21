@@ -35,13 +35,13 @@ pipeline {
                 echo "Levantando base de datos y ejecutando tests con Docker Compose..."
                 
                 // 1. Nos aseguramos de levantar la base de datos de test y esperar a que esté saludable
-                sh "docker compose --profile test up -d db"
+                sh "docker-compose --profile test up -d db"
                 
                 // 2. Ejecutamos el servicio de tests definido en el compose, inyectando la URL de la base de datos del compose
-                sh "docker compose --profile test run --rm -e DATABASE_URL='postgresql://cafeteria:cafeteria@db:5432/cafeteria' -v \${WORKSPACE}/backend/reports:/app/reports backend-tests pytest --junitxml=reports/junit.xml"
+                sh "docker-compose --profile test run --rm -e DATABASE_URL='postgresql://cafeteria:cafeteria@db:5432/cafeteria' -v \${WORKSPACE}/backend/reports:/app/reports backend-tests pytest --junitxml=reports/junit.xml"
                 
                 // 3. Bajamos los servicios temporales para dejar el entorno limpio
-                sh "docker compose --profile test down -v"
+                sh "docker-compose --profile test down -v"
             }
         }
 
