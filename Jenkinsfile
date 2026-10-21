@@ -32,16 +32,21 @@ pipeline {
                 expression { params.EJECUTAR_TESTS }
             }
             steps {
-                echo "Levantando base de datos y ejecutando tests con Docker Compose..."
+                echo "Levantando base de datos con Docker Compose..."
                 
-                // 1. Nos aseguramos de levantar la base de datos de test y esperar a que esté saludable
-                sh "docker-compose --profile test up -d db"
+                // 1. Levantamos la base de datos definida en el docker-compose.yml
+                sh "docker compose up -d db"
                 
-                // 2. Ejecutamos el servicio de tests definido en el compose, inyectando la URL de la base de datos del compose
-                sh "docker-compose --profile test run --rm -e DATABASE_URL='postgresql://cafeteria:cafeteria@db:5432/cafeteria' -v \${WORKSPACE}/backend/reports:/app/reports backend-tests pytest --junitxml=reports/junit.xml"
+                echo "Ejecutando tests con pytest..."
+                // 2. Construimos y ejecutamos el contenedor de tests usando el target de prueba del Dockerfile del backend
+                sh "docker build --target test -t backend-test-env:latest ./backend"
                 
-                // 3. Bajamos los servicios temporales para dejar el entorno limpio
-                sh "docker-compose --profile test down -v"
+                // 3. Corremos los tests conectándonos al servicio 'db' levantado por el compose
+                sh "docker compose run --rm -e DATABASE_URL='postgresql://cafeteria:cafeteria@db:5432/cafeteria' -v \${WORKSPACE}/backend/reports:/app/reports backend-test-env:latest pytest --junitxml=reports/junit.xml"
+                
+                echo "Limpiando contenedores de prueba..."
+                // 4. Bajamos la base de datos y limpiamos
+                sh "docker compose down -v"
             }
         }
 
