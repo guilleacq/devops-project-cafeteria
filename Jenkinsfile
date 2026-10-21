@@ -48,17 +48,7 @@ pipeline {
                 """
                 
                 echo "Esperando a que la base de datos esté lista..."
-                sh """
-                    for i in {1..30}; do
-                      if docker exec temp-test-db pg_isready -U cafeteria -d cafeteria; then
-                        echo "Base de datos lista."
-                        exit 0
-                      fi
-                      echo "Esperando postgres... (\$i/30)"
-                      sleep 2
-                    done
-                    exit 1
-                """
+                sh "sleep 5"
                 
                 echo "Ejecutando tests con pytest dentro del contenedor..."
                 // Acá inyectamos la DATABASE_URL apuntando al contenedor temporal dentro de la red privada
