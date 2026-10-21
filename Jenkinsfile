@@ -2,7 +2,6 @@ pipeline {
     agent any
 
     environment {
-        // Ajusta tu registry si tienes uno propio provisto por la facultad
         REGISTRY = 'luispee' 
         IMAGE_BACKEND = "${env.REGISTRY}/devops-project-cafeteria-backend"
         IMAGE_FRONTEND = "${env.REGISTRY}/devops-project-cafeteria-frontend"
@@ -11,6 +10,7 @@ pipeline {
 
     options {
         timestamps()
+        ansiColor('xterm')
     }
 
     parameters {
@@ -27,33 +27,55 @@ pipeline {
             }
         }
 
-        stage('Backend: Lint & Tests (Docker Compose Test)') {
+        stage('Backend: Lint & Tests (Docker Target Test)') {
             when {
                 expression { params.EJECUTAR_TESTS }
             }
             steps {
-                echo "Levantando base de datos con Docker Compose..."
-                
-                // 1. Levantamos la base de datos definida en el docker-compose.yml
-                sh "docker compose up -d db"
-                
-                echo "Ejecutando tests con pytest..."
-                // 2. Construimos y ejecutamos el contenedor de tests usando el target de prueba del Dockerfile del backend
+                echo "Construyendo imagen de pruebas del backend..."
                 sh "docker build --target test -t backend-test-env:latest ./backend"
                 
-                // 3. Corremos los tests conectándonos al servicio 'db' levantado por el compose
-                sh "docker compose run --rm -e DATABASE_URL='postgresql://cafeteria:cafeteria@db:5432/cafeteria' -v \${WORKSPACE}/backend/reports:/app/reports backend-test-env:latest pytest --junitxml=reports/junit.xml"
+                echo "Creando red de prueba temporal para la base de datos..."
+                sh "docker network create test-net-pipeline || true"
                 
-                echo "Limpiando contenedores de prueba..."
-                // 4. Bajamos la base de datos y limpiamos
-                sh "docker compose down -v"
+                echo "Levantando base de datos temporal para los tests..."
+                sh """
+                    docker run -d --name temp-test-db \
+                      --network test-net-pipeline \
+                      -e POSTGRES_USER=cafeteria \
+                      -e POSTGRES_PASSWORD=cafeteria \
+                      -e POSTGRES_DB=cafeteria \
+                      postgres:16
+                """
+                
+                echo "Esperando a que la base de datos esté lista..."
+                sh """
+                    for i in {1..30}; do
+                      if docker exec temp-test-db pg_isready -U cafeteria -d cafeteria; then
+                        echo "Base de datos lista."
+                        exit 0
+                      fi
+                      echo "Esperando postgres... (\$i/30)"
+                      sleep 2
+                    done
+                    exit 1
+                """
+                
+                echo "Ejecutando tests con pytest dentro del contenedor..."
+                // Acá inyectamos la DATABASE_URL apuntando al contenedor temporal dentro de la red privada
+                sh """
+                    docker run --rm \
+                      --network test-net-pipeline \
+                      -e DATABASE_URL='postgresql://cafeteria:cafeteria@temp-test-db:5432/cafeteria' \
+                      -v \${WORKSPACE}/backend/reports:/app/reports \
+                      backend-test-env:latest pytest --junitxml=reports/junit.xml
+                """
             }
         }
 
         stage('Frontend: Build check') {
             steps {
                 echo "Validando compilación del Frontend (etapa build)..."
-                // Aprovechamos la etapa 'build' del Dockerfile del frontend para asegurar que compila bien
                 sh "docker build --target build ./frontend"
             }
         }
@@ -61,11 +83,7 @@ pipeline {
         stage('Construir Imágenes de Producción (Runtime)') {
             steps {
                 echo "Construyendo imágenes finales para despliegue..."
-                
-                // Backend Runtime
                 sh "docker build --target runtime -t ${IMAGE_BACKEND}:${VERSION_TAG} -t ${IMAGE_BACKEND}:latest ./backend"
-                
-                // Frontend Runtime (con NGINX)
                 sh "docker build --target runtime -t ${IMAGE_FRONTEND}:${VERSION_TAG} -t ${IMAGE_FRONTEND}:latest ./frontend"
             }
         }
@@ -77,7 +95,6 @@ pipeline {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
                     sh "echo '${DOCKER_PASS}' | docker login -u '${DOCKER_USER}' --password-stdin"
-                    
                     sh "docker push ${IMAGE_BACKEND}:${VERSION_TAG}"
                     sh "docker push ${IMAGE_BACKEND}:latest"
                     sh "docker push ${IMAGE_FRONTEND}:${VERSION_TAG}"
@@ -92,14 +109,10 @@ pipeline {
             }
             steps {
                 echo "Desplegando en el namespace alumno-team4..."
-                
-                // Actualizamos las imágenes de los deployments existentes en tu namespace
                 sh """
                     kubectl set image deployment/backend backend=${IMAGE_BACKEND}:${VERSION_TAG} -n alumno-team4
                     kubectl set image deployment/frontend frontend=${IMAGE_FRONTEND}:${VERSION_TAG} -n alumno-team4
                 """
-                
-                // Verificamos que el rollout se complete exitosamente
                 sh """
                     kubectl rollout status deployment/backend -n alumno-team4
                     kubectl rollout status deployment/frontend -n alumno-team4
@@ -110,7 +123,11 @@ pipeline {
 
     post {
         always {
-            // Publica los resultados de los tests en Jenkins
+            // Limpiamos los recursos temporales de los tests si llegaron a quedar colgados
+            sh "docker stop temp-test-db || true"
+            sh "docker rm temp-test-db || true"
+            sh "docker network rm test-net-pipeline || true"
+            
             junit allowEmptyResults: true, testResults: 'backend/reports/junit.xml'
         }
     }
