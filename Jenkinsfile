@@ -27,18 +27,21 @@ pipeline {
             }
         }
 
-        stage('Backend: Lint & Tests (Docker Target Test)') {
+        stage('Backend: Lint & Tests (Docker Compose Test)') {
             when {
                 expression { params.EJECUTAR_TESTS }
             }
             steps {
-                echo "Construyendo imagen de pruebas del backend..."
-                // Aprovechamos la etapa 'test' de tu Dockerfile del backend
-                sh "docker build --target test -t backend-test-env:latest ./backend"
+                echo "Levantando base de datos y ejecutando tests con Docker Compose..."
                 
-                echo "Ejecutando tests con pytest dentro del contenedor..."
-                // Ejecutamos pytest y extraemos los reportes si es necesario
-                sh "docker run --rm -v \${WORKSPACE}/backend/reports:/app/reports backend-test-env:latest pytest --junitxml=reports/junit.xml"
+                // 1. Nos aseguramos de levantar la base de datos de test y esperar a que esté saludable
+                sh "docker compose --profile test up -d db"
+                
+                // 2. Ejecutamos el servicio de tests definido en el compose, inyectando la URL de la base de datos del compose
+                sh "docker compose --profile test run --rm -e DATABASE_URL='postgresql://cafeteria:cafeteria@db:5432/cafeteria' -v \${WORKSPACE}/backend/reports:/app/reports backend-tests pytest --junitxml=reports/junit.xml"
+                
+                // 3. Bajamos los servicios temporales para dejar el entorno limpio
+                sh "docker compose --profile test down -v"
             }
         }
 
@@ -104,10 +107,6 @@ pipeline {
         always {
             // Publica los resultados de los tests en Jenkins
             junit allowEmptyResults: true, testResults: 'backend/reports/junit.xml'
-        }
-        cleanup {
-            // Limpieza opcional de imágenes locales en el agente de Jenkins para no llenar el disco
-            sh "docker system prune -f || true"
         }
     }
 }
