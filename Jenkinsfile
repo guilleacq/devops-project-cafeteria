@@ -10,7 +10,6 @@ pipeline {
 
     options {
         timestamps()
-        ansiColor('xterm')
     }
 
     parameters {
