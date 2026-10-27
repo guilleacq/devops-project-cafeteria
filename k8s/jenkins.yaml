@@ -1,0 +1,158 @@
+# ---------------------------------------------------------------------------
+# Jenkins, corriendo en el cluster: https://jenkins-pedidos.reto-ucu.net
+#
+# El pod tiene dos contenedores:
+#   jenkins → Jenkins en sí (imagen de jenkins/Dockerfile)
+#   dind    → "Docker in Docker": un Docker propio donde Jenkins hace los
+#             `docker build` y `docker run` del Jenkinsfile
+#
+# Los dos montan el mismo disco en /var/jenkins_home, así las rutas del
+# workspace son iguales para los dos (el Jenkinsfile monta archivos del
+# workspace en contenedores, por ejemplo db/init.sql).
+# ---------------------------------------------------------------------------
+
+
+# El disco de Jenkins: configuración, usuarios, credenciales e historial de
+# builds. Si el pod se reinicia, no se pierde nada.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: jenkins-home
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 3Gi
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jenkins
+spec:
+  replicas: 1
+
+  # Igual que la base: el disco no se puede compartir entre dos pods.
+  strategy:
+    type: Recreate
+
+  selector:
+    matchLabels:
+      app: jenkins
+
+  template:
+    metadata:
+      labels:
+        app: jenkins
+
+    spec:
+      # El usuario `jenkins` de la imagen (uid 1000) tiene que poder
+      # escribir en el disco.
+      securityContext:
+        fsGroup: 1000
+
+      containers:
+        - name: jenkins
+          image: guilleacq/cafeteria-jenkins:v1
+          ports:
+            - containerPort: 8080
+
+          env:
+            # Los comandos `docker` van al contenedor dind de al lado.
+            - name: DOCKER_HOST
+              value: tcp://localhost:2375
+            - name: JAVA_OPTS
+              value: -XX:MaxRAMPercentage=60
+
+          resources:
+            requests:
+              cpu: 50m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1536Mi
+
+          # Jenkins tarda en arrancar: hasta 5 minutos antes de darlo por muerto.
+          readinessProbe:
+            httpGet:
+              path: /login
+              port: 8080
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /login
+              port: 8080
+            initialDelaySeconds: 300
+            periodSeconds: 30
+
+          volumeMounts:
+            - name: jenkins-home
+              mountPath: /var/jenkins_home
+
+        - name: dind
+          image: docker:29-dind
+
+          # Docker necesita permisos especiales para correr contenedores.
+          securityContext:
+            privileged: true
+
+          env:
+            # Sin TLS: solo lo usa Jenkins, desde adentro del mismo pod.
+            - name: DOCKER_TLS_CERTDIR
+              value: ""
+
+          resources:
+            requests:
+              cpu: 50m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 2Gi
+
+          volumeMounts:
+            - name: jenkins-home
+              mountPath: /var/jenkins_home
+            - name: docker-data
+              mountPath: /var/lib/docker
+
+      volumes:
+        - name: jenkins-home
+          persistentVolumeClaim:
+            claimName: jenkins-home
+        # Las imágenes que construye Docker. Si se pierden al reiniciar, el
+        # próximo build tarda un poco más y listo.
+        - name: docker-data
+          emptyDir: {}
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: jenkins
+spec:
+  selector:
+    app: jenkins
+  ports:
+    - port: 80
+      targetPort: 8080
+
+---
+
+apiVersion: apisix.apache.org/v2
+kind: ApisixRoute
+metadata:
+  name: jenkins
+spec:
+  http:
+    - name: jenkins
+      match:
+        hosts:
+          - jenkins-pedidos.reto-ucu.net
+        paths:
+          - /*
+      backends:
+        - serviceName: jenkins
+          servicePort: 80

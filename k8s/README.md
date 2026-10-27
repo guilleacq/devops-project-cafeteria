@@ -9,6 +9,13 @@ entra por **https://pedidos.reto-ucu.net**.
 | `backend.yaml` | La API + sus variables + el Service `backend-svc` | servicio `backend` |
 | `frontend.yaml` | nginx con la app + el Service `frontend-svc` | servicio `frontend` |
 | `ingress.yaml` | La URL pública (un `ApisixRoute`): `/api` → backend, `/` → frontend | `ports:` |
+| `jenkins.yaml` | Jenkins + su disco, en https://jenkins-pedidos.reto-ucu.net | — |
+
+La imagen de Jenkins (`jenkins/Dockerfile`) se construye y se sube una vez a mano:
+
+```bash
+docker buildx build --platform linux/amd64 -t guilleacq/cafeteria-jenkins:v1 --push ./jenkins
+```
 
 ## Antes de empezar
 

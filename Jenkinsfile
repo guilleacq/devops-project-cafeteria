@@ -5,7 +5,9 @@ pipeline {
         REGISTRY = 'guilleacq'
         IMAGE_BACKEND = "${env.REGISTRY}/cafeteria-backend"
         IMAGE_FRONTEND = "${env.REGISTRY}/cafeteria-frontend"
-        VERSION_TAG = "${params.VERSION}"
+        // Si no se escribe una versión a mano, se usa el commit (ej. b08e545):
+        // cada build tiene un tag distinto y Kubernetes detecta el cambio.
+        VERSION_TAG = "${params.VERSION ?: env.GIT_COMMIT.take(7)}"
     }
 
     options {
@@ -13,7 +15,7 @@ pipeline {
     }
 
     parameters {
-        string(name: 'VERSION', defaultValue: '1.0.0', description: 'Versión a desplegar')
+        string(name: 'VERSION', defaultValue: '', description: 'Versión a desplegar (vacío = el commit)')
         booleanParam(name: 'EJECUTAR_TESTS', defaultValue: true, description: 'Correr los tests del backend')
     }
 
@@ -21,7 +23,7 @@ pipeline {
         stage('Info del Commit') {
             steps {
                 echo "Rama: ${env.BRANCH_NAME}"
-                echo "Desplegando versión: ${params.VERSION}"
+                echo "Desplegando versión: ${VERSION_TAG}"
                 sh 'git log -1 --oneline'
             }
         }
