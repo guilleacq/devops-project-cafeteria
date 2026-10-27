@@ -44,6 +44,7 @@ pipeline {
                       -e POSTGRES_USER=cafeteria \
                       -e POSTGRES_PASSWORD=cafeteria \
                       -e POSTGRES_DB=cafeteria \
+                      -v \${WORKSPACE}/db/init.sql:/docker-entrypoint-initdb.d/01_init.sql:ro \
                       postgres:16
                 """
                 
