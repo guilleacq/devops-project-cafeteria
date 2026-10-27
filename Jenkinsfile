@@ -103,7 +103,9 @@ pipeline {
             } */
             steps {
                 echo "Desplegando en el namespace alumno-team4..."
-                withKubeConfig(credentialsId: 'cluster-ucu-team4') {
+                // Jenkins corre adentro del cluster y desde ahí la dirección pública del
+                // kubeconfig no responde: se usa la interna, que es el mismo servidor.
+                withKubeConfig(credentialsId: 'cluster-ucu-team4', serverUrl: 'https://kubernetes.default.svc') {
                     sh """
                         kubectl set image deployment/backend backend=${IMAGE_BACKEND}:${VERSION_TAG} -n alumno-team4
                         kubectl set image deployment/frontend frontend=${IMAGE_FRONTEND}:${VERSION_TAG} -n alumno-team4
