@@ -2,9 +2,9 @@ pipeline {
     agent any
 
     environment {
-        REGISTRY = 'luispee' 
-        IMAGE_BACKEND = "${env.REGISTRY}/devops-project-cafeteria-backend"
-        IMAGE_FRONTEND = "${env.REGISTRY}/devops-project-cafeteria-frontend"
+        REGISTRY = 'guilleacq'
+        IMAGE_BACKEND = "${env.REGISTRY}/cafeteria-backend"
+        IMAGE_FRONTEND = "${env.REGISTRY}/cafeteria-frontend"
         VERSION_TAG = "${params.VERSION}"
     }
 
@@ -73,8 +73,9 @@ pipeline {
         stage('Construir Imágenes de Producción (Runtime)') {
             steps {
                 echo "Construyendo imágenes finales para despliegue..."
-                sh "docker build --target runtime -t ${IMAGE_BACKEND}:${VERSION_TAG} -t ${IMAGE_BACKEND}:latest ./backend"
-                sh "docker build --target runtime -t ${IMAGE_FRONTEND}:${VERSION_TAG} -t ${IMAGE_FRONTEND}:latest ./frontend"
+                // El cluster es amd64: si Jenkins corre en una Mac con chip M, sin esto la imagen no arranca allá.
+                sh "docker build --platform linux/amd64 --target runtime -t ${IMAGE_BACKEND}:${VERSION_TAG} -t ${IMAGE_BACKEND}:latest ./backend"
+                sh "docker build --platform linux/amd64 --target runtime -t ${IMAGE_FRONTEND}:${VERSION_TAG} -t ${IMAGE_FRONTEND}:latest ./frontend"
             }
         }
 
@@ -84,7 +85,8 @@ pipeline {
             } */
             steps {
                 withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-                    sh "echo '${DOCKER_PASS}' | docker login -u '${DOCKER_USER}' --password-stdin"
+                    // Comillas simples: así la contraseña la lee el shell y no aparece en los logs de Jenkins.
+                    sh 'echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin'
                     sh "docker push ${IMAGE_BACKEND}:${VERSION_TAG}"
                     sh "docker push ${IMAGE_BACKEND}:latest"
                     sh "docker push ${IMAGE_FRONTEND}:${VERSION_TAG}"
@@ -108,6 +110,7 @@ pipeline {
                         kubectl rollout status deployment/frontend -n alumno-team4
                     """
                 }
+            }
         }
     }
 
