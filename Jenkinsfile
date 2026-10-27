@@ -99,16 +99,15 @@ pipeline {
             } */
             steps {
                 echo "Desplegando en el namespace alumno-team4..."
-                sh """
-                    docker run --rm \
-                      -v ${env.WORKSPACE}/kubeconfig:/root/.kube/config \
-                      bitnami/kubectl set image deployment/backend backend=${IMAGE_BACKEND}:${VERSION_TAG} -n alumno-team4
-                    
-                    docker run --rm \
-                      -v ${env.WORKSPACE}/kubeconfig:/root/.kube/config \
-                      bitnami/kubectl set image deployment/frontend frontend=${IMAGE_FRONTEND}:${VERSION_TAG} -n alumno-team4
-                """
-            }
+                withKubeConfig(credentialsId: 'cluster-ucu-team4') {
+                    sh """
+                        kubectl set image deployment/backend backend=${IMAGE_BACKEND}:${VERSION_TAG} -n alumno-team4
+                        kubectl set image deployment/frontend frontend=${IMAGE_FRONTEND}:${VERSION_TAG} -n alumno-team4
+                        
+                        kubectl rollout status deployment/backend -n alumno-team4
+                        kubectl rollout status deployment/frontend -n alumno-team4
+                    """
+                }
         }
     }
 
