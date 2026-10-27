@@ -1,0 +1,106 @@
+# ---------------------------------------------------------------------------
+# Base de datos: PostgreSQL.
+#
+# Equivale al servicio `db` del docker-compose.yml.
+#
+# Las tablas las crea db/init.sql la primera vez (igual que en compose).
+# Ese archivo llega al contenedor desde el ConfigMap `db-init`, que se crea
+# con un comando (ver k8s/README.md) para no copiar el SQL acá adentro.
+# ---------------------------------------------------------------------------
+
+
+# El disco donde Postgres guarda los datos. Equivale al volumen
+# `postgres-data` del compose: si el pod se reinicia, los datos siguen ahí.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-data
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: db
+spec:
+  replicas: 1
+
+  # Antes de levantar la versión nueva, apaga la vieja. Si no, las dos
+  # quedarían peleando por el mismo disco.
+  strategy:
+    type: Recreate
+
+  selector:
+    matchLabels:
+      app: db
+
+  template:
+    metadata:
+      labels:
+        app: db
+
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16
+          ports:
+            - containerPort: 5432
+
+          # Cuánta CPU reserva. El cluster es chico y compartido entre
+          # equipos: con lo que reserva por defecto (100m) no entra.
+          resources:
+            requests:
+              cpu: 25m
+
+          env:
+            - name: POSTGRES_USER
+              value: cafeteria
+            - name: POSTGRES_DB
+              value: cafeteria
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: cafeteria-secret
+                  key: POSTGRES_PASSWORD
+
+          # No recibe pedidos hasta que Postgres acepta conexiones.
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "cafeteria", "-d", "cafeteria"]
+            periodSeconds: 5
+
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+            - name: init-sql
+              mountPath: /docker-entrypoint-initdb.d
+              readOnly: true
+
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: postgres-data
+        - name: init-sql
+          configMap:
+            name: db-init
+
+---
+
+# El nombre `db` para que el backend la encuentre, igual que en compose:
+# postgresql://cafeteria:...@db:5432/cafeteria
+apiVersion: v1
+kind: Service
+metadata:
+  name: db
+spec:
+  selector:
+    app: db
+  ports:
+    - port: 5432
+      targetPort: 5432

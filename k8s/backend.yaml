@@ -1,0 +1,94 @@
+# ---------------------------------------------------------------------------
+# Backend: la API (FastAPI).
+#
+# Equivale al servicio `backend` del docker-compose.yml.
+# ---------------------------------------------------------------------------
+
+
+# Las variables de entorno que no son secretas. Equivale al `environment:`
+# del compose. Las secretas (contraseña de la base y JWT_SECRET) están en el
+# Secret `cafeteria-secret` (ver k8s/README.md).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-config
+data:
+  APP_TIMEZONE: America/Montevideo
+  REPOSITORY_BACKEND: postgres
+  DEFAULT_ORDER_CUTOFF_MINUTES: "15"
+  CORS_ALLOWED_ORIGINS: "*"
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: backend
+
+  template:
+    metadata:
+      labels:
+        app: backend
+
+    spec:
+      containers:
+        - name: backend
+          image: guilleacq/cafeteria-backend:v1
+          ports:
+            - containerPort: 8000
+
+          # Reserva poca CPU porque el cluster es compartido (ver db.yaml).
+          resources:
+            requests:
+              cpu: 25m
+
+          envFrom:
+            - configMapRef:
+                name: backend-config
+
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: cafeteria-secret
+                  key: DATABASE_URL
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: cafeteria-secret
+                  key: JWT_SECRET
+
+          # readiness: no le manda tráfico hasta que /health responde.
+          # liveness:  si /health deja de responder, reinicia el contenedor.
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 15
+            periodSeconds: 15
+
+---
+
+# El nombre `backend-svc` para llegar a la API dentro del cluster.
+# Escucha en el puerto 80 y lo pasa al 8000 del contenedor.
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-svc
+spec:
+  selector:
+    app: backend
+  ports:
+    - port: 80
+      targetPort: 8000

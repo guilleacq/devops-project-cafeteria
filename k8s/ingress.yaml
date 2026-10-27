@@ -1,0 +1,37 @@
+# ---------------------------------------------------------------------------
+# La puerta de entrada desde internet: https://pedidos.reto-ucu.net
+#
+#   /api/...      → backend   (la API vive bajo /api, ver backend/app/main.py)
+#   todo lo demás → frontend
+#
+# En este cluster lo que recibe el tráfico de afuera es APISIX (no el
+# Ingress de nginx), por eso es un ApisixRoute y no un Ingress. La idea es
+# la misma: qué dirección va a qué Service.
+# ---------------------------------------------------------------------------
+
+
+apiVersion: apisix.apache.org/v2
+kind: ApisixRoute
+metadata:
+  name: pedidos
+spec:
+  http:
+    - name: api
+      match:
+        hosts:
+          - pedidos.reto-ucu.net
+        paths:
+          - /api/*
+      backends:
+        - serviceName: backend-svc
+          servicePort: 80
+
+    - name: frontend
+      match:
+        hosts:
+          - pedidos.reto-ucu.net
+        paths:
+          - /*
+      backends:
+        - serviceName: frontend-svc
+          servicePort: 80

@@ -1,0 +1,60 @@
+# ---------------------------------------------------------------------------
+# Frontend: la app de React, servida por nginx.
+#
+# Equivale al servicio `frontend` del docker-compose.yml.
+# ---------------------------------------------------------------------------
+
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: frontend
+
+  template:
+    metadata:
+      labels:
+        app: frontend
+
+    spec:
+      containers:
+        - name: frontend
+          image: guilleacq/cafeteria-frontend:v1
+          ports:
+            - containerPort: 8080
+
+          # Reserva poca CPU porque el cluster es compartido (ver db.yaml).
+          resources:
+            requests:
+              cpu: 25m
+
+          # En el cluster el Ingress ya manda /api al backend, pero nginx
+          # igual necesita un nombre que exista para poder arrancar.
+          env:
+            - name: BACKEND_URL
+              value: http://backend-svc:80
+
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            periodSeconds: 5
+
+---
+
+# El nombre `frontend-svc`. Escucha en el 80 y lo pasa al 8080 de nginx.
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-svc
+spec:
+  selector:
+    app: frontend
+  ports:
+    - port: 80
+      targetPort: 8080
