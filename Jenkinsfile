@@ -2,7 +2,6 @@ pipeline {
     agent any
 
     environment {
-        // Ajusta tu registry si tienes uno propio provisto por la facultad
         REGISTRY = 'luispee' 
         IMAGE_BACKEND = "${env.REGISTRY}/devops-project-cafeteria-backend"
         IMAGE_FRONTEND = "${env.REGISTRY}/devops-project-cafeteria-frontend"
@@ -11,7 +10,6 @@ pipeline {
 
     options {
         timestamps()
-        ansiColor('xterm')
     }
 
     parameters {
@@ -34,19 +32,40 @@ pipeline {
             }
             steps {
                 echo "Construyendo imagen de pruebas del backend..."
-                // Aprovechamos la etapa 'test' de tu Dockerfile del backend
                 sh "docker build --target test -t backend-test-env:latest ./backend"
                 
+                echo "Creando red de prueba temporal para la base de datos..."
+                sh "docker network create test-net-pipeline || true"
+                
+                echo "Levantando base de datos temporal para los tests..."
+                sh """
+                    docker run -d --name temp-test-db \
+                      --network test-net-pipeline \
+                      -e POSTGRES_USER=cafeteria \
+                      -e POSTGRES_PASSWORD=cafeteria \
+                      -e POSTGRES_DB=cafeteria \
+                      -v \${WORKSPACE}/db/init.sql:/docker-entrypoint-initdb.d/01_init.sql:ro \
+                      postgres:16
+                """
+                
+                echo "Esperando a que la base de datos esté lista..."
+                sh "sleep 5"
+                
                 echo "Ejecutando tests con pytest dentro del contenedor..."
-                // Ejecutamos pytest y extraemos los reportes si es necesario
-                sh "docker run --rm -v \${WORKSPACE}/backend/reports:/app/reports backend-test-env:latest pytest --junitxml=reports/junit.xml"
+                // Acá inyectamos la DATABASE_URL apuntando al contenedor temporal dentro de la red privada
+                sh """
+                    docker run --rm \
+                      --network test-net-pipeline \
+                      -e DATABASE_URL='postgresql://cafeteria:cafeteria@temp-test-db:5432/cafeteria' \
+                      -v \${WORKSPACE}/backend/reports:/app/reports \
+                      backend-test-env:latest pytest --junitxml=reports/junit.xml
+                """
             }
         }
 
         stage('Frontend: Build check') {
             steps {
                 echo "Validando compilación del Frontend (etapa build)..."
-                // Aprovechamos la etapa 'build' del Dockerfile del frontend para asegurar que compila bien
                 sh "docker build --target build ./frontend"
             }
         }
@@ -54,23 +73,18 @@ pipeline {
         stage('Construir Imágenes de Producción (Runtime)') {
             steps {
                 echo "Construyendo imágenes finales para despliegue..."
-                
-                // Backend Runtime
                 sh "docker build --target runtime -t ${IMAGE_BACKEND}:${VERSION_TAG} -t ${IMAGE_BACKEND}:latest ./backend"
-                
-                // Frontend Runtime (con NGINX)
                 sh "docker build --target runtime -t ${IMAGE_FRONTEND}:${VERSION_TAG} -t ${IMAGE_FRONTEND}:latest ./frontend"
             }
         }
 
         stage('Push al Registry') {
-            when {
+            /* when {
                 branch 'main'
-            }
+            } */
             steps {
                 withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
                     sh "echo '${DOCKER_PASS}' | docker login -u '${DOCKER_USER}' --password-stdin"
-                    
                     sh "docker push ${IMAGE_BACKEND}:${VERSION_TAG}"
                     sh "docker push ${IMAGE_BACKEND}:latest"
                     sh "docker push ${IMAGE_FRONTEND}:${VERSION_TAG}"
@@ -80,35 +94,31 @@ pipeline {
         }
 
         stage('Deploy a Kubernetes') {
-            when {
+            /* when {
                 branch 'main'
-            }
+            } */
             steps {
                 echo "Desplegando en el namespace alumno-team4..."
-                
-                // Actualizamos las imágenes de los deployments existentes en tu namespace
-                sh """
-                    kubectl set image deployment/backend backend=${IMAGE_BACKEND}:${VERSION_TAG} -n alumno-team4
-                    kubectl set image deployment/frontend frontend=${IMAGE_FRONTEND}:${VERSION_TAG} -n alumno-team4
-                """
-                
-                // Verificamos que el rollout se complete exitosamente
-                sh """
-                    kubectl rollout status deployment/backend -n alumno-team4
-                    kubectl rollout status deployment/frontend -n alumno-team4
-                """
-            }
+                withKubeConfig(credentialsId: 'cluster-ucu-team4') {
+                    sh """
+                        kubectl set image deployment/backend backend=${IMAGE_BACKEND}:${VERSION_TAG} -n alumno-team4
+                        kubectl set image deployment/frontend frontend=${IMAGE_FRONTEND}:${VERSION_TAG} -n alumno-team4
+                        
+                        kubectl rollout status deployment/backend -n alumno-team4
+                        kubectl rollout status deployment/frontend -n alumno-team4
+                    """
+                }
         }
     }
 
     post {
         always {
-            // Publica los resultados de los tests en Jenkins
+            // Limpiamos los recursos temporales de los tests si llegaron a quedar colgados
+            sh "docker stop temp-test-db || true"
+            sh "docker rm temp-test-db || true"
+            sh "docker network rm test-net-pipeline || true"
+            
             junit allowEmptyResults: true, testResults: 'backend/reports/junit.xml'
-        }
-        cleanup {
-            // Limpieza opcional de imágenes locales en el agente de Jenkins para no llenar el disco
-            sh "docker system prune -f || true"
         }
     }
 }
