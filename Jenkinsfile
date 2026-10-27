@@ -79,9 +79,9 @@ pipeline {
         }
 
         stage('Push al Registry') {
-            when {
+            /* when {
                 branch 'main'
-            }
+            } */
             steps {
                 withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
                     sh "echo '${DOCKER_PASS}' | docker login -u '${DOCKER_USER}' --password-stdin"
@@ -94,9 +94,9 @@ pipeline {
         }
 
         stage('Deploy a Kubernetes') {
-            when {
+            /* when {
                 branch 'main'
-            }
+            } */
             steps {
                 echo "Desplegando en el namespace alumno-team4..."
                 sh """
