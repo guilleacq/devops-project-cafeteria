@@ -24,7 +24,7 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: guilleacq/cafeteria-frontend:v1
+          image: guilleacq/cafeteria-frontend:ebfed35
           ports:
             - containerPort: 8080
 
@@ -32,6 +32,8 @@ spec:
           resources:
             requests:
               cpu: 25m
+            limits:
+              cpu: 250m
 
           # En el cluster el Ingress ya manda /api al backend, pero nginx
           # igual necesita un nombre que exista para poder arrancar.

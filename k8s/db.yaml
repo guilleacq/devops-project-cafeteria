@@ -52,11 +52,16 @@ spec:
           ports:
             - containerPort: 5432
 
-          # Cuánta CPU reserva. El cluster es chico y compartido entre
-          # equipos: con lo que reserva por defecto (100m) no entra.
+          # requests: cuánta CPU reserva. El cluster es chico y compartido
+          #   entre equipos: con lo que reserva por defecto (100m) no entra.
+          # limits: cuánta puede usar como máximo. La cuota del equipo es de
+          #   4 CPU sumando todos los pods (Jenkins incluido); con el valor por
+          #   defecto (500m) no queda lugar para el pod nuevo al actualizar.
           resources:
             requests:
               cpu: 25m
+            limits:
+              cpu: 250m
 
           env:
             - name: POSTGRES_USER

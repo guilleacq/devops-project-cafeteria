@@ -39,7 +39,7 @@ spec:
     spec:
       containers:
         - name: backend
-          image: guilleacq/cafeteria-backend:v1
+          image: guilleacq/cafeteria-backend:ebfed35
           ports:
             - containerPort: 8000
 
@@ -47,6 +47,8 @@ spec:
           resources:
             requests:
               cpu: 25m
+            limits:
+              cpu: 250m
 
           envFrom:
             - configMapRef:
